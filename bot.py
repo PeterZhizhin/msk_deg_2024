@@ -8,6 +8,8 @@ from telegram.ext import (
     CommandHandler,
     ConversationHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 import config
@@ -24,6 +26,25 @@ logging.basicConfig(
 
 # Define conversation states
 MENU, TOPIC_A, TOPIC_B, TOPIC_C, TOPIC_D = range(5)
+
+
+async def photo_message_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    if update.effective_chat.id not in config.REPLY_WITH_PHOTO_ID_USER_IDS:
+        logger.info(
+            "Unauthorized user attempted to send a photo: "
+            f"{update.effective_chat.id}. Allowed users: {config.REPLY_WITH_PHOTO_ID_USER_IDS}"
+        )
+        return
+
+    # Extract the file ID of the last photo in the message (highest resolution)
+    photo_file_id = update.message.photo[-1].file_id
+
+    # Reply to the user with the photo file ID
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"Photo ID: {photo_file_id}"
+    )
 
 
 def _get_info_keyboard() -> list[list[InlineKeyboardButton]]:
@@ -186,6 +207,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
+    application.add_handler(MessageHandler(filters.PHOTO, photo_message_handler))
 
     application.run_polling()
 
