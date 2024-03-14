@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  check-sid-bot:
+    build: .
+    volumes:
+      - ./storage:/usr/src/data
+    environment:
+      - CHECK_SID_BOT_TOKEN=${CHECK_SID_BOT_TOKEN}
+      - DATABASE_URL=sqlite:////usr/src/data/mydatabase.db
