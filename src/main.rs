@@ -53,6 +53,20 @@ struct HashedTxRow {
     row_hash: String,
 }
 
+/*
+
+CREATE TABLE saved_tx_hashes (
+    TxHash TEXT,
+    RowHash TEXT,
+    PRIMARY KEY (TxHash, RowHash)
+);
+
+GRANT INSERT, SELECT ON saved_tx_hashes TO check_sid_moscow_ingest;
+GRANT USAGE ON SCHEMA public TO check_sid_moscow_ingest;
+GRANT CONNECT ON DATABASE moscow_real_vote_db TO check_sid_moscow_ingest;
+
+*/
+
 async fn query_hash_of_saved_tx(
     client: std::sync::Arc<tokio_postgres::Client>,
 ) -> Result<std::collections::HashSet<HashedTxRow>, Error> {
@@ -140,7 +154,7 @@ CREATE TABLE moscow_blockchain_txs (
 
 GRANT INSERT, SELECT, UPDATE, DELETE ON moscow_blockchain_txs TO check_sid_moscow_ingest;
 GRANT USAGE ON SCHEMA public TO check_sid_moscow_ingest;
-GRANT CONNECT ON DATABASE moscow_testing_vote_db TO check_sid_moscow_ingest;
+GRANT CONNECT ON DATABASE moscow_real_vote_db TO check_sid_moscow_ingest;
 
 */
 
@@ -315,7 +329,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .clone();
 
     let pattern = format!("{}/*.json", directory_path);
-    let glob_result = glob::glob(&pattern)?;
+    let glob_result: Vec<_> = glob::glob(&pattern)?.collect();
+
+    if glob_result.is_empty() {
+        log::error!("No files found in {}", directory_path);
+        return Err("No files found".into());
+    }
+
+    log::info!("Found {} files to parse", glob_result.len());
 
     let cert = native_tls::Certificate::from_pem(&std::fs::read("certificate.pem")?)?;
 
@@ -348,7 +369,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         let mut n_lines_read = 0;
         let mut new_txes = 0;
-        for (file_n, path) in glob_result.enumerate() {
+        for (file_n, path) in glob_result.iter().enumerate() {
             match path {
                 Ok(path) => {
                     log::info!("Reading file #{}: {:?}", file_n, path);
@@ -439,6 +460,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for task in tasks {
         task.await?;
     }
+
+    log::info!("Everyhing is done!");
 
     Ok(())
 }
