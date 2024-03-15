@@ -202,17 +202,18 @@ async def moscow_yes_i_checked_sid(
         [[InlineKeyboardButton("В главное меню", callback_data="back")]]
     )
 
-    await context.bot.send_message(
+    msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="""
+        text=f"""
 Пришлите мне полученный адрес транзакции.
 
 Это должна быть строка из букв, цифр и дефисов.
 
-Пример: 000ff5df-5b5c-4f72-83d0-1147727240e6
+Пример: {config.HARDCODED_MOSCOW_VALID_SID}
 """.strip(),
         reply_markup=reply_markup,
     )
+    context.user_data["delete_keyboard_message_id"] = msg.message_id
 
     return MOSCOW_ASKED_FOR_SID
 
@@ -229,25 +230,33 @@ async def moscow_sid_message_handler(
 
     user_text = user_text.strip()
 
-    reply_markup = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("В главное меню", callback_data="back")]]
-    )
+    reply_buttons = [[InlineKeyboardButton("В главное меню", callback_data="back")]]
+
+    user_data = context.user_data
+    delete_keyboard_message_id = user_data.get("delete_keyboard_message_id")
+    if delete_keyboard_message_id:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=delete_keyboard_message_id,
+            reply_markup=None,  # This removes the keyboard
+        )
 
     if not check_sid.is_valid_sid(user_text):
         logging.info(f"Entered invalid SID: {user_text}")
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="""
 Это не похоже на адрес транзакции. Попробуйте еще раз.
     """.strip(),
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup(reply_buttons),
         )
+        user_data["delete_keyboard_message_id"] = msg.message_id
         return MOSCOW_ASKED_FOR_SID
 
     try:
         sid_data = check_sid.query_sid(user_text)
     except ValueError as e:
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""
 Упс, с вашей транзакцией явно пошло не так:
@@ -256,8 +265,9 @@ async def moscow_sid_message_handler(
 
 Напишите @PeterZhizhin. Чтобы выйти в главное меню нажмите /start.
     """.strip(),
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup(reply_buttons),
         )
+        user_data["delete_keyboard_message_id"] = msg.message_id
         logging.exception(f"Error while querying SID:\n{traceback.format_exc()}")
 
         database_fns.persist_sid_data(
@@ -275,7 +285,7 @@ async def moscow_sid_message_handler(
     )
 
     if sid_data is None:
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="""
 Этот адрес транзакции не найден в базе данных Московского голосования.
@@ -285,14 +295,24 @@ async def moscow_sid_message_handler(
 
 Введите другой SID или нажмите кнопку чтобы выйти в меню.
     """.strip(),
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup(reply_buttons),
         )
+        user_data["delete_keyboard_message_id"] = msg.message_id
 
         return MOSCOW_ASKED_FOR_SID
 
     sid_data_formatted = sid_data.human_readable()
 
-    await context.bot.send_message(
+    reply_buttons.append(
+        [
+            InlineKeyboardButton(
+                "Что за поле data?",
+                callback_data="moscow_what_is_data_field",
+            ),
+        ]
+    )
+
+    msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=f"""
 {sid_data_formatted}
@@ -301,8 +321,49 @@ async def moscow_sid_message_handler(
 
 Пришлите ещё один адрес транзакции или нажмите кнопку чтобы выйти в меню.
 """.strip(),
-        reply_markup=reply_markup,
+        reply_markup=InlineKeyboardMarkup(reply_buttons),
     )
+    user_data["delete_keyboard_message_id"] = msg.message_id
+
+    return MOSCOW_ASKED_FOR_SID
+
+
+async def moscow_what_is_data_field_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
+    query = update.callback_query
+    assert query is not None
+    assert update.effective_chat is not None
+
+    await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    reply_buttons = [[InlineKeyboardButton("В главное меню", callback_data="back")]]
+
+    msg = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="""
+В этом поле по-идее должен храниться ваш зашифрованный голос.
+
+Достоверно проверить, так это или нет - невозможно.
+
+Когда вы голосуете, голос шифруется первый раз у вас в браузере ключом, который делят на много частей и который в момент подсчёта публикуют в базе данных голосования.
+Далее разработчики шифруют голос второй раз, уже с использованием ключа, доступного только ДИТ Москвы.
+
+Из-за этого в этой системе невозможно независимо подвести итоги.
+
+Разработчики называют "транспортным шифрованием".
+
+Такой механизм упрощает любые фальсификации: так как независимо расшифровать голоса невозможно, то и проверить, что расшифровку не подменили тоже не получится.
+
+Введите ещё один SID или нажмите кнопку чтобы выйти в меню.
+""".strip(),
+        reply_markup=InlineKeyboardMarkup(reply_buttons),
+    )
+    user_data = context.user_data or {}
+    user_data["delete_keyboard_message_id"] = msg.message_id
 
     return MOSCOW_ASKED_FOR_SID
 
@@ -511,6 +572,10 @@ def main() -> None:
             MOSCOW_ASKED_FOR_SID: [
                 MessageHandler(filters.TEXT, moscow_sid_message_handler),
                 CallbackQueryHandler(start, pattern="^back$"),
+                CallbackQueryHandler(
+                    moscow_what_is_data_field_handler,
+                    pattern="moscow_what_is_data_field",
+                ),
             ],
         },
         fallbacks=[CommandHandler("start", start)],

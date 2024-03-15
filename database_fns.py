@@ -1,10 +1,12 @@
-import check_sid
-import database
 import json
 import datetime
 import logging
 
 from telegram import Update
+
+import config
+import check_sid
+import database
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,10 @@ def persist_sid_data(
     error_info: str | None,
     sid_data: check_sid.SidQueryResult | None,
 ) -> None:
+    if sid == config.HARDCODED_MOSCOW_VALID_SID:
+        logger.info(f"Skipping persisting test sid: {sid}")
+        return
+
     found_sid = sid_data is not None
     tx_info = None if sid_data is None else sid_data.to_json()
     check_timestamp = datetime.datetime.now(datetime.timezone.utc)
