@@ -9,3 +9,4 @@ services:
       - CHECK_SID_BOT_TOKEN=${CHECK_SID_BOT_TOKEN}
       - DATABASE_URL=sqlite:////usr/src/data/mydatabase.db
       - REPLY_WITH_PHOTO_ID_USER_IDS=
+      - MOSCOW_SID_DATABASE_URL=${MOSCOW_SID_DATABASE_URL}

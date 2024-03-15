@@ -1,5 +1,7 @@
 from collections.abc import Sequence
+import functools
 import logging
+import traceback
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -12,6 +14,7 @@ from telegram.ext import (
     filters,
 )
 
+import check_sid
 import config
 import database_fns
 import photos
@@ -25,7 +28,9 @@ logging.basicConfig(
 )
 
 # Define conversation states
-MENU, TOPIC_A, TOPIC_B, TOPIC_C, TOPIC_D = range(5)
+MENU, ASKED_FOR_INFO_OPTIONS, MOSCOW_ASKED_IF_CHECKED_SID, MOSCOW_ASKED_FOR_SID = range(
+    4
+)
 
 
 async def photo_message_handler(
@@ -43,7 +48,8 @@ async def photo_message_handler(
 
     # Reply to the user with the photo file ID
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"Photo ID: {photo_file_id}"
+        chat_id=update.effective_chat.id,
+        text=f"Photo ID: {photo_file_id}",
     )
 
 
@@ -78,6 +84,20 @@ def _get_info_keyboard() -> list[list[InlineKeyboardButton]]:
     ]
 
 
+def _get_menu_keyboard() -> list[list[InlineKeyboardButton]]:
+    return [
+        [
+            InlineKeyboardButton(
+                "ДЭГ Москвы: Проверка транзакции",
+                callback_data="moscow_check_sid",
+            ),
+        ],
+        [
+            InlineKeyboardButton("Информация про ДЭГ", callback_data="info"),
+        ],
+    ]
+
+
 async def start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -86,7 +106,12 @@ async def start(
 
     database_fns.ensure_user_in_db(update)
 
-    reply_markup = InlineKeyboardMarkup(_get_info_keyboard())
+    query = update.callback_query
+    if query is not None:
+        await query.answer()
+        await query.edit_message_reply_markup(reply_markup=None)
+
+    reply_markup = InlineKeyboardMarkup(_get_menu_keyboard())
     # Example of sending photos (replace 'URL_or_file_id' with actual URLs or file identifiers)
     # await context.bot.send_photo(chat_id=update.effective_chat.id, photo='URL_or_file_id_of_your_photo')
     # await context.bot.send_photo(chat_id=update.effective_chat.id, photo='URL_or_file_id_of_your_second_photo')
@@ -101,9 +126,9 @@ async def start(
         text="""
 Это бот для проверки голосов дистанционного электронного голосования (ДЭГ). Не дайте украсть свой голос!
 
-Сейчас бот выдаёт общую информацию. Во время голосования бот позволит проверить ваш голос.
-
 При голосовании в ДЭГ в бюллетене поставьте галочку «Хочу получить адрес зашифрованной транзакции в блокчейне», сохраните адрес транзакции.
+
+Сейчас бот может проверить ДЭГ Москвы, или рассказать общую информацию.
 
 Подробная информация в разделах ниже ⬇️
 """.strip(),
@@ -113,7 +138,214 @@ async def start(
     return MENU
 
 
-async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def moscow_check_sid_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
+    query = update.callback_query
+    assert query is not None
+    assert update.effective_chat is not None
+
+    await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    reply_markup = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Назад", callback_data="back"),
+            ],
+            [
+                InlineKeyboardButton(
+                    "Да, я поставил галочку",
+                    callback_data="yes",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "Нет, я не ставил галочек проверки голоса",
+                    callback_data="no",
+                ),
+            ],
+        ]
+    )
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="""
+Для проверки голоса вы были должны сделать:
+
+- Поставить галочку «Хочу получить адрес зашифрованной транзакции в блокчейне» в бюллетене.
+- Записать полученный шифр.
+
+Вы это сделали?
+""".strip(),
+        reply_markup=reply_markup,
+    )
+
+    return MOSCOW_ASKED_IF_CHECKED_SID
+
+
+async def moscow_yes_i_checked_sid(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
+    query = update.callback_query
+    assert query is not None
+    assert update.effective_chat is not None
+
+    await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    reply_markup = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("В главное меню", callback_data="back")]]
+    )
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="""
+Пришлите мне полученный адрес транзакции.
+
+Это должна быть строка из букв, цифр и дефисов.
+
+Пример: 000ff5df-5b5c-4f72-83d0-1147727240e6
+""".strip(),
+        reply_markup=reply_markup,
+    )
+
+    return MOSCOW_ASKED_FOR_SID
+
+
+async def moscow_sid_message_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
+    assert update.message is not None
+
+    user_text = update.message.text
+
+    assert user_text is not None
+
+    user_text = user_text.strip()
+
+    reply_markup = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("В главное меню", callback_data="back")]]
+    )
+
+    if not check_sid.is_valid_sid(user_text):
+        logging.info(f"Entered invalid SID: {user_text}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="""
+Это не похоже на адрес транзакции. Попробуйте еще раз.
+    """.strip(),
+            reply_markup=reply_markup,
+        )
+        return MOSCOW_ASKED_FOR_SID
+
+    try:
+        sid_data = check_sid.query_sid(user_text)
+    except ValueError as e:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"""
+Упс, с вашей транзакцией явно пошло не так:
+
+{e}
+
+Напишите @PeterZhizhin. Чтобы выйти в главное меню нажмите /start.
+    """.strip(),
+            reply_markup=reply_markup,
+        )
+        logging.exception(f"Error while querying SID:\n{traceback.format_exc()}")
+
+        database_fns.persist_sid_data(
+            sid=user_text,
+            error_info=str(e),
+            sid_data=None,
+        )
+
+        return await start(update, context)
+
+    database_fns.persist_sid_data(
+        sid=user_text,
+        error_info=None,
+        sid_data=sid_data,
+    )
+
+    if sid_data is None:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="""
+Этот адрес транзакции не найден в базе данных Московского голосования.
+
+Данные обновляются 1 раз в час. Попробуйте позже.
+Если прошло много времени, а транзакции нет, то напишите @PeterZhizhin.
+
+Введите другой SID или нажмите кнопку чтобы выйти в меню.
+    """.strip(),
+            reply_markup=reply_markup,
+        )
+
+        return MOSCOW_ASKED_FOR_SID
+
+    sid_data_formatted = sid_data.human_readable()
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"""
+{sid_data_formatted}
+
+Что-то не так? Напишите @PeterZhizhin.
+
+Пришлите ещё один адрес транзакции или нажмите кнопку чтобы выйти в меню.
+""".strip(),
+        reply_markup=reply_markup,
+    )
+
+    return MOSCOW_ASKED_FOR_SID
+
+
+async def moscow_did_not_check_sid(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
+    query = update.callback_query
+    assert query is not None
+    assert update.effective_chat is not None
+
+    await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="""
+Если вы проголосовали через в ДЭГ через Интернет или на участке через терминал, но не поставили галочку, то проверить голос не получится.
+
+Более того, голос очень легко могут подменить. Однако мы не знаем, будут ли они это делать. Но, на всякий случай, считайте, что вы проголосовали за Путина.
+
+Расскажите о галочке проверки своего голоса своим друзьям и знакомым.
+""".strip(),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "Информация", callback_data="did_not_check_get_info"
+                    )
+                ],
+            ]
+        ),
+    )
+
+    return MOSCOW_ASKED_IF_CHECKED_SID
+
+
+async def ask_for_info_options(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> int:
     query = update.callback_query
     assert query is not None
     assert update.effective_chat is not None
@@ -123,10 +355,37 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     await query.edit_message_reply_markup(reply_markup=None)
     await _send_delimiter(update, context)
 
+    reply_markup = InlineKeyboardMarkup(_get_info_keyboard())
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Выбирите пункт меню:",
+        reply_markup=reply_markup,
+    )
+
+    return ASKED_FOR_INFO_OPTIONS
+
+
+async def menu_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    data_override: str | None = None,
+) -> int:
+    query = update.callback_query
+    assert query is not None
+    assert update.effective_chat is not None
+
+    await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
+    await _send_delimiter(update, context)
+
+    query_data = query.data if data_override is None else data_override
+
     # Send new message with information based on the button pressed
-    if query.data == "back":
+    if query_data == "back":
         return await start(update, context)
-    if query.data in [
+    if query_data in [
         "why_bot_exists",
         "moscow_in_person_info",
         "voting_in_moscow_deg",
@@ -137,7 +396,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             "moscow_in_person_info": photos.MOSCOW_IN_PERSON_INFO,
             "voting_in_moscow_deg": photos.VOTING_IN_MOSCOW_DEG,
             "voting_in_region_deg": photos.VOTING_IN_REGION_DEG,
-        }.get(query.data, [])
+        }.get(query_data, [])
 
         if not isinstance(image_ids, list):
             image_ids = [image_ids]
@@ -197,7 +456,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 Про фальсификации в 2021 году: https://novayagazeta.ru/articles/2021/09/30/mandaty-polzuiutsia-vbrosom
 Про устройство работы ДЭГ в Москве: https://habr.com/ru/articles/689002/
 """.strip(),
-        }[query.data]
+        }[query_data]
 
         for image_id in image_ids:
             await context.bot.send_photo(
@@ -217,7 +476,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             reply_markup=reply_markup,
         )
 
-        return MENU
+        return ASKED_FOR_INFO_OPTIONS
 
     return await start(update, context)
 
@@ -228,7 +487,31 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            MENU: [CallbackQueryHandler(menu_handler)],
+            MENU: [
+                CallbackQueryHandler(ask_for_info_options, pattern="^info$"),
+                CallbackQueryHandler(
+                    moscow_check_sid_handler, pattern="^moscow_check_sid$"
+                ),
+            ],
+            ASKED_FOR_INFO_OPTIONS: [
+                CallbackQueryHandler(start, pattern="^back$"),
+                CallbackQueryHandler(menu_handler),
+            ],
+            MOSCOW_ASKED_IF_CHECKED_SID: [
+                CallbackQueryHandler(start, pattern="^back$"),
+                CallbackQueryHandler(moscow_did_not_check_sid, pattern="^no$"),
+                CallbackQueryHandler(
+                    functools.partial(
+                        menu_handler, data_override="voting_in_moscow_deg"
+                    ),
+                    pattern="did_not_check_get_info",
+                ),
+                CallbackQueryHandler(moscow_yes_i_checked_sid, pattern="^yes$"),
+            ],
+            MOSCOW_ASKED_FOR_SID: [
+                MessageHandler(filters.TEXT, moscow_sid_message_handler),
+                CallbackQueryHandler(start, pattern="^back$"),
+            ],
         },
         fallbacks=[CommandHandler("start", start)],
     )
