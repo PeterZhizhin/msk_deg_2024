@@ -93,6 +93,12 @@ def _get_menu_keyboard() -> list[list[InlineKeyboardButton]]:
             ),
         ],
         [
+            InlineKeyboardButton(
+                "Голосую бумажным бюллетенем в любом регионе",
+                callback_data="voting_in_person_redirect",
+            ),
+        ],
+        [
             InlineKeyboardButton("Информация про ДЭГ", callback_data="info"),
         ],
     ]
@@ -131,6 +137,39 @@ async def start(
 Сейчас бот может проверить ДЭГ Москвы, или рассказать общую информацию.
 
 Подробная информация в разделах ниже ⬇️
+""".strip(),
+        reply_markup=reply_markup,
+    )
+
+    return MENU
+
+
+async def redirect_to_dobrostat(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+    if query is not None:
+        await query.answer()
+        await query.edit_message_reply_markup(reply_markup=None)
+
+    await _send_delimiter(update, context)
+
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=photos.MOSCOW_IN_PERSON_INFO[0],
+    )
+
+    reply_markup = InlineKeyboardMarkup(_get_menu_keyboard())
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="""
+Отправьте фотографию заполенного буажного бюллетеня в бота @dobrostatbot.
+
+Бот ведёт независимый учёт голосов.
+
+В Москве не забывайте, что бумажный бюллетень надо просить отдельно. Вам предложат проголосовать через терминал: это ДЭГ. Непрозрачный и непроверяемый.
 """.strip(),
         reply_markup=reply_markup,
     )
@@ -478,6 +517,8 @@ async def menu_handler(
 
 Терминалы на участках это такой же ДЭГ, непрозрачный и фальсифицируемый. Голосуйте бумажным бюллетенем.
 
+Отправьте фотографию заполненного бюллетеня в бот наших коллег: @dobrostatbot. Они ведут независимый подсчёт бумажных бюллетеней.
+
 Если вы всё равно голосуете через терминал, то ведите себя так, что вы голосуете через ДЭГ.
 Нажмите кнопку "Прописка в Москве, голосую через ДЭГ", чтобы узнать, как обезопасить свой голос.
 """.strip(),
@@ -552,6 +593,9 @@ def main() -> None:
                 CallbackQueryHandler(ask_for_info_options, pattern="^info$"),
                 CallbackQueryHandler(
                     moscow_check_sid_handler, pattern="^moscow_check_sid$"
+                ),
+                CallbackQueryHandler(
+                    redirect_to_dobrostat, pattern="^voting_in_person_redirect$"
                 ),
             ],
             ASKED_FOR_INFO_OPTIONS: [
