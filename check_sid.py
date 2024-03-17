@@ -255,6 +255,15 @@ class SidQueryResult:
         }
 
 
+def message_to_sid(message: str) -> str:
+    original_message = message
+    message = message.strip().lower()
+    allowed_symbols = set("0123456789abcdef-")
+    sid_str = "".join(x for x in message if x in allowed_symbols)
+    logging.info(f"Converting message {original_message} to sid {sid_str}")
+    return sid_str
+
+
 def is_valid_sid(sid: str) -> bool:
     # Example: 00113b68-bdae-469a-888e-ec8b18d06238
     try:

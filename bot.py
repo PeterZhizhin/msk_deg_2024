@@ -280,12 +280,16 @@ async def moscow_sid_message_handler(
             reply_markup=None,  # This removes the keyboard
         )
 
-    if not check_sid.is_valid_sid(user_text):
-        logging.info(f"Entered invalid SID: {user_text}")
+    sid = check_sid.message_to_sid(user_text)
+
+    if not check_sid.is_valid_sid(sid):
+        logging.info(f"Entered invalid SID: {sid}")
         msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="""
 Это не похоже на адрес транзакции. Попробуйте еще раз.
+
+Если вы голосовали в ДЭГ с регионом прописки не в Москве, то на данный момент функционал проверки находится в разработке.
     """.strip(),
             reply_markup=InlineKeyboardMarkup(reply_buttons),
         )
@@ -293,7 +297,7 @@ async def moscow_sid_message_handler(
         return MOSCOW_ASKED_FOR_SID
 
     try:
-        sid_data = check_sid.query_sid(user_text)
+        sid_data = check_sid.query_sid(sid)
     except ValueError as e:
         msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -310,7 +314,7 @@ async def moscow_sid_message_handler(
         logging.exception(f"Error while querying SID:\n{traceback.format_exc()}")
 
         database_fns.persist_sid_data(
-            sid=user_text,
+            sid=sid,
             error_info=str(e),
             sid_data=None,
         )
@@ -318,7 +322,7 @@ async def moscow_sid_message_handler(
         return await start(update, context)
 
     database_fns.persist_sid_data(
-        sid=user_text,
+        sid=sid,
         error_info=None,
         sid_data=sid_data,
     )
@@ -587,7 +591,11 @@ def main() -> None:
     application = Application.builder().token(config.BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[
+            CommandHandler("start", start),
+            MessageHandler(filters.TEXT, start),
+            CallbackQueryHandler(start),
+        ],
         states={
             MENU: [
                 CallbackQueryHandler(ask_for_info_options, pattern="^info$"),
@@ -622,7 +630,11 @@ def main() -> None:
                 ),
             ],
         },
-        fallbacks=[CommandHandler("start", start)],
+        fallbacks=[
+            CommandHandler("start", start),
+            MessageHandler(filters.TEXT, start),
+            CallbackQueryHandler(start),
+        ],
     )
 
     application.add_handler(conv_handler)
