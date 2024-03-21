@@ -1,0 +1,1259 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "datasource",
+            "uid": "grafana"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "description": "Смотрим на состояние",
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 3,
+    "links": [],
+    "panels": [
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "id": 11,
+        "panels": [],
+        "title": "Текущие сведения о голосовании",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 1
+        },
+        "id": 9,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\nselect\r\n\t*\r\nfrom\r\n\tcrosstab(\r\n  'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n\t'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n) as final_result(tx_source text,\r\n\tissueBallot int,\r\n\tstoreBallot int))\r\nselect\r\n\tcase\r\n\t\twhen \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n\t\twhen \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n\tend as \"Тип голосования\",\r\n\tissueBallot as \"Выданно бюллетеней\",\r\n\tstoreBallot as \"Принято бюллетеней\",\r\n\tissueBallot / 7888635.0 * 100 as \"Явка, %\",\r\n\t(1 - cast(storeBallot as float) / issueBallot) * 100 as \"Унесли «домой», %\"\r\nfrom \r\n\tpivoted_table;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования на текущий момент",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "description": "",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 5
+        },
+        "id": 2,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "format": "time_series",
+            "group": [],
+            "metricColumn": "none",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  $__timeGroupAlias(tx_time,'5m'),\n  sum(transaction_cnt) AS \"value\",\n  tx_type as \"metric\"\nFROM store_issue_ballot_by_time\nWHERE\n  $__timeFilter(tx_time)\nGROUP BY time, tx_type\nORDER BY time",
+            "refId": "A",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ],
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ]
+            ],
+            "timeColumn": "time",
+            "where": [
+              {
+                "name": "$__timeFilter",
+                "params": [],
+                "type": "macro"
+              }
+            ]
+          }
+        ],
+        "title": "Количество получивших бюллетени и проголосовавших (агрегация 5 минут)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "description": "EVT: Голосование в терминале",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "yellow",
+              "mode": "fixed"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 5
+        },
+        "id": 6,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "time_series",
+            "group": [],
+            "metricColumn": "none",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  $__timeGroupAlias(tx_time, '5m'),\n  sum(transaction_cnt) AS \"value\"\nFROM\n  store_issue_ballot_by_time\nWHERE\n  $__timeFilter(tx_time)\n  and (tx_type = 'storeBallot')\n  and (tx_source = '\"EVT\"')\nGROUP BY\n  time\nORDER BY\n  time",
+            "refId": "A",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ],
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ]
+            ],
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "s",
+            "timeColumn": "time",
+            "where": []
+          }
+        ],
+        "title": "Количество проголосовавших (ТЭГ)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "description": "DEG: Электронное голосование\nEVT: Голосование в терминале",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 14
+        },
+        "id": 5,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "format": "time_series",
+            "group": [],
+            "metricColumn": "none",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  $__timeGroupAlias(tx_time,'5m'),\n  sum(transaction_cnt) AS \"value\",\n  tx_source as \"metric\"\nFROM store_issue_ballot_by_time\nWHERE\n  $__timeFilter(tx_time) and tx_type = 'storeBallot'\nGROUP BY time, tx_source\nORDER BY time",
+            "refId": "A",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ],
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ]
+            ],
+            "table": "s",
+            "timeColumn": "time",
+            "where": []
+          }
+        ],
+        "title": "Количество проголосовавших в разбивке ДЭГ/ТЭГ",
+        "type": "timeseries"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 23
+        },
+        "id": 12,
+        "panels": [],
+        "title": "Статистика голосования + ГАС Выборы",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "#ef1a1a",
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "__systemRef": "hideSeriesFrom",
+              "matcher": {
+                "id": "byNames",
+                "options": {
+                  "mode": "exclude",
+                  "names": [
+                    "Выданно бюллетеней",
+                    "ДЭГ"
+                  ],
+                  "prefix": "All except:",
+                  "readOnly": true
+                }
+              },
+              "properties": [
+                {
+                  "id": "custom.hideFrom",
+                  "value": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": true
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ДЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Бумага"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ТЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#969696",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 4,
+          "x": 0,
+          "y": 24
+        },
+        "id": 15,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "percent"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-15 20:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      2976986 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования (15.03.2024 20:00)",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ДЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Бумага"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ТЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#969696",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 4,
+          "x": 4,
+          "y": 24
+        },
+        "id": 14,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "percent"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-16 20:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      4286481 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования (16.03.2024 20:00)",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ТЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#969696",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ДЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Бумага"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 4,
+          "x": 8,
+          "y": 24
+        },
+        "id": 16,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "percent"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-17 15:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      4998214 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования (17.03.2024, 15:00)",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ТЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#969696",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ДЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Бумага"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 5,
+          "x": 12,
+          "y": 24
+        },
+        "id": 17,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "percent"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-18 21:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      5407471 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования, финал",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 24,
+          "x": 0,
+          "y": 34
+        },
+        "id": 13,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-16 20:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      4286481 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\",\r\n    storeBallot as \"Принято бюллетеней\",\r\n    issueBallot / 7888635.0 * 100 as \"Явка, %\",\r\n    (1 - cast(storeBallot as float) / issueBallot) * 100 as \"Унесли «домой», %\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования (16.03.2024 20:00)",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 24,
+          "x": 0,
+          "y": 39
+        },
+        "id": 10,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-15 20:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      2976986 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\",\r\n    storeBallot as \"Принято бюллетеней\",\r\n    issueBallot / 7888635.0 * 100 as \"Явка, %\",\r\n    (1 - cast(storeBallot as float) / issueBallot) * 100 as \"Унесли «домой», %\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования (15.03.2024 20:00)",
+        "type": "table"
+      }
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "2024-03-15T11:13:26.103Z",
+      "to": "2024-03-15T23:13:26.103Z"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Московский ДЭГ 2024",
+    "uid": "v7IHfGJSk",
+    "version": 31,
+    "weekStart": ""
+  }

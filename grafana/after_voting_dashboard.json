@@ -1,0 +1,1241 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "datasource",
+            "uid": "grafana"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 2,
+    "links": [],
+    "panels": [
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ТЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#969696",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "ДЭГ"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Бумага"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 5,
+          "x": 0,
+          "y": 0
+        },
+        "id": 16,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "percent"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "with pivoted_table as (\r\n  select\r\n    *\r\n  from\r\n    crosstab(\r\n      'SELECT\r\n    tx_source, tx_type,\r\n  \tsum(transaction_cnt) as cnt\r\nFROM\r\n  store_issue_ballot_by_time\r\nWHERE tx_time < TIMESTAMP WITH TIME ZONE ''2024-03-18 21:00:00+03''\r\nGROUP BY\r\n  tx_type, tx_source\r\nORDER BY 1, 2',\r\n      'SELECT unnest(ARRAY[''issueBallot'', ''storeBallot''])'\r\n    ) as final_result(\r\n      tx_source text,\r\n      issueBallot int,\r\n      storeBallot int\r\n    )\r\n),\r\npivoted_table_with_paper AS (\r\n  SELECT\r\n    *\r\n  FROM\r\n    pivoted_table\r\n  UNION\r\n  ALL (\r\n    SELECT\r\n      'Бумага' as tx_source,\r\n      5407471 - SUM(issueBallot) as issueBallot,\r\n      null as storeBallot\r\n    FROM\r\n      pivoted_table\r\n  )\r\n),\r\ntable_query as (\r\n  select\r\n    case\r\n      when \"tx_source\" = '\"DEG\"' then 'ДЭГ'\r\n      when \"tx_source\" = '\"EVT\"' then 'ТЭГ'\r\n      else \"tx_source\"\r\n    end as \"Тип голосования\",\r\n    issueBallot as \"Выданно бюллетеней\"\r\n  from\r\n    pivoted_table_with_paper\r\n)\r\nSELECT\r\n  *\r\nFROM\r\n  table_query;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Статистика голосования, финал",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "__systemRef": "hideSeriesFrom",
+              "matcher": {
+                "id": "byNames",
+                "options": {
+                  "mode": "exclude",
+                  "names": [
+                    "candidate_votes"
+                  ],
+                  "prefix": "All except:",
+                  "readOnly": true
+                }
+              },
+              "properties": [
+                {
+                  "id": "custom.hideFrom",
+                  "value": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": true
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 5,
+          "x": 5,
+          "y": 0
+        },
+        "id": 9,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "value"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "WITH candidate_id_to_votes AS (\r\n  SELECT\r\n    candidate_id,\r\n    SUM(cnt) as candidate_votes\r\n  FROM\r\n    time_to_candidate_minute_trunc\r\n  GROUP BY\r\n    candidate_id\r\n),\r\ncandidate_name_to_votes AS (\r\n  SELECT\r\n    candidate_id_to_votes.*,\r\n    candidate_id_to_name.candidate_name as candidate_name\r\n  FROM\r\n    candidate_id_to_votes\r\n    LEFT JOIN candidate_id_to_name ON (\r\n      candidate_id_to_votes.candidate_id :: text = candidate_id_to_name.candidate_id :: text\r\n    )\r\n)\r\nSELECT\r\n  COALESCE(candidate_name :: text, 'Испорченный бюллетень') as candidate_name,\r\n  candidate_votes\r\nFROM\r\n  candidate_name_to_votes;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ДЭГ + ТЭГ",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 5,
+          "x": 10,
+          "y": 0
+        },
+        "id": 10,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "value"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "WITH candidate_id_to_votes AS (\r\n  SELECT\r\n    candidate_id,\r\n    SUM(cnt) as candidate_votes\r\n  FROM\r\n    time_to_candidate_minute_trunc\r\n  WHERE source = 'DEG'\r\n  GROUP BY\r\n    candidate_id\r\n),\r\ncandidate_name_to_votes AS (\r\n  SELECT\r\n    candidate_id_to_votes.*,\r\n    candidate_id_to_name.candidate_name as candidate_name\r\n  FROM\r\n    candidate_id_to_votes\r\n    LEFT JOIN candidate_id_to_name ON (\r\n      candidate_id_to_votes.candidate_id :: text = candidate_id_to_name.candidate_id :: text\r\n    )\r\n)\r\nSELECT\r\n  COALESCE(candidate_name :: text, 'Испорченный бюллетень') as candidate_name,\r\n  candidate_votes\r\nFROM\r\n  candidate_name_to_votes;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ДЭГ",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 6,
+          "x": 15,
+          "y": 0
+        },
+        "id": 11,
+        "options": {
+          "displayLabels": [
+            "percent"
+          ],
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "values": [
+              "value"
+            ]
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": true
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "WITH candidate_id_to_votes AS (\r\n  SELECT\r\n    candidate_id,\r\n    SUM(cnt) as candidate_votes\r\n  FROM\r\n    time_to_candidate_minute_trunc\r\n  WHERE source = 'EVT'\r\n  GROUP BY\r\n    candidate_id\r\n),\r\ncandidate_name_to_votes AS (\r\n  SELECT\r\n    candidate_id_to_votes.*,\r\n    candidate_id_to_name.candidate_name as candidate_name\r\n  FROM\r\n    candidate_id_to_votes\r\n    LEFT JOIN candidate_id_to_name ON (\r\n      candidate_id_to_votes.candidate_id :: text = candidate_id_to_name.candidate_id :: text\r\n    )\r\n)\r\nSELECT\r\n  COALESCE(candidate_name :: text, 'Испорченный бюллетень') as candidate_name,\r\n  candidate_votes\r\nFROM\r\n  candidate_name_to_votes;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ТЭГ",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "description": "DEG: Электронное голосование\nEVT: Голосование в терминале",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 11,
+          "w": 24,
+          "x": 0,
+          "y": 10
+        },
+        "id": 15,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "format": "time_series",
+            "group": [],
+            "metricColumn": "none",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  $__timeGroupAlias(tx_time,'5m'),\n  sum(transaction_cnt) AS \"value\",\n  tx_source as \"metric\"\nFROM store_issue_ballot_by_time\nWHERE\n  $__timeFilter(tx_time) and tx_type = 'storeBallot'\nGROUP BY time, tx_source\nORDER BY time",
+            "refId": "A",
+            "select": [
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ],
+              [
+                {
+                  "params": [
+                    "value"
+                  ],
+                  "type": "column"
+                }
+              ]
+            ],
+            "table": "s",
+            "timeColumn": "time",
+            "where": []
+          }
+        ],
+        "title": "Количество проголосовавших в разбивке ДЭГ/ТЭГ",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "axisSoftMin": 0,
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ХАРИТОНОВ Николай Михайлович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-orange",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 14,
+          "w": 24,
+          "x": 0,
+          "y": 21
+        },
+        "id": 12,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "time_series",
+            "rawQuery": true,
+            "rawSql": "WITH time_candidate_id_to_total AS (\r\n  SELECT\r\n    $__timeGroupAlias(\"storage_timestamp\", '5m'),\r\n    candidate_id,\r\n    SUM(cnt) as candidate_total\r\n  FROM\r\n    time_to_candidate_minute_trunc as t\r\n  WHERE $__timeFilter(\"storage_timestamp\")\r\n  GROUP BY\r\n    time,\r\n    candidate_id\r\n  ORDER BY\r\n    time,\r\n    candidate_id\r\n),\r\ntime_to_total_votes AS (\r\n  SELECT\r\n    time,\r\n    SUM(candidate_total) as total_votes_at_time\r\n  FROM\r\n    time_candidate_id_to_total\r\n  GROUP BY\r\n    time\r\n),\r\ntime_candidate_to_total_joined AS (\r\n  SELECT\r\n    time_candidate_id_to_total.time as time,\r\n    time_candidate_id_to_total.candidate_id as candidate_id,\r\n    time_candidate_id_to_total.candidate_total / time_to_total_votes.total_votes_at_time as candidate_fraction\r\n  FROM\r\n    time_candidate_id_to_total\r\n    JOIN time_to_total_votes USING (time)\r\n),\r\npercents_with_names AS (\r\n  SELECT\r\n    t1.*,\r\n    t2.candidate_name as candidate_name\r\n  FROM\r\n    time_candidate_to_total_joined as t1\r\n    LEFT JOIN candidate_id_to_name as t2 ON (\r\n      t1.candidate_id :: text = t2.candidate_id :: text\r\n    )\r\n)\r\nSELECT\r\n  time,\r\n  COALESCE(candidate_name::text, 'Испорченный бюллетень') as \"metric\",\r\n  candidate_fraction * 100.0 as \"value\"\r\nFROM\r\n  percents_with_names\r\nORDER BY time, candidate_id;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ДЭГ + ТЭГ",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "axisSoftMin": 0,
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ХАРИТОНОВ Николай Михайлович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-orange",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 14,
+          "w": 24,
+          "x": 0,
+          "y": 35
+        },
+        "id": 13,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "time_series",
+            "rawQuery": true,
+            "rawSql": "WITH time_candidate_id_to_total AS (\r\n  SELECT\r\n    $__timeGroupAlias(\"storage_timestamp\", '5m'),\r\n    candidate_id,\r\n    SUM(cnt) as candidate_total\r\n  FROM\r\n    time_to_candidate_minute_trunc as t\r\n  WHERE\r\n    $__timeFilter(\"storage_timestamp\")\r\n    and source = 'DEG'\r\n  GROUP BY\r\n    time,\r\n    candidate_id\r\n  ORDER BY\r\n    time,\r\n    candidate_id\r\n),\r\ntime_to_total_votes AS (\r\n  SELECT\r\n    time,\r\n    SUM(candidate_total) as total_votes_at_time\r\n  FROM\r\n    time_candidate_id_to_total\r\n  GROUP BY\r\n    time\r\n),\r\ntime_candidate_to_total_joined AS (\r\n  SELECT\r\n    time_candidate_id_to_total.time as time,\r\n    time_candidate_id_to_total.candidate_id as candidate_id,\r\n    time_candidate_id_to_total.candidate_total / time_to_total_votes.total_votes_at_time as candidate_fraction\r\n  FROM\r\n    time_candidate_id_to_total\r\n    JOIN time_to_total_votes USING (time)\r\n),\r\npercents_with_names AS (\r\n  SELECT\r\n    t1.*,\r\n    t2.candidate_name as candidate_name\r\n  FROM\r\n    time_candidate_to_total_joined as t1\r\n    LEFT JOIN candidate_id_to_name as t2 ON (\r\n      t1.candidate_id :: text = t2.candidate_id :: text\r\n    )\r\n)\r\nSELECT\r\n  time,\r\n  COALESCE(candidate_name :: text, 'Испорченный бюллетень') as \"metric\",\r\n  candidate_fraction * 100.0 as \"value\"\r\nFROM\r\n  percents_with_names\r\nORDER BY\r\n  time,\r\n  candidate_id;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ДЭГ",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "TN-00M1Sk"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "axisSoftMin": 0,
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ПУТИН Владимир Владимирович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-red",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ДАВАНКОВ Владислав Андреевич\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-green",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"СЛУЦКИЙ Леонид Эдуардович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-blue",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "\"ХАРИТОНОВ Николай Михайлович\""
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "dark-orange",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 14,
+          "w": 24,
+          "x": 0,
+          "y": 49
+        },
+        "id": 14,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "10.4.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "TN-00M1Sk"
+            },
+            "editorMode": "code",
+            "format": "time_series",
+            "rawQuery": true,
+            "rawSql": "WITH time_candidate_id_to_total AS (\r\n  SELECT\r\n    $__timeGroupAlias(\"storage_timestamp\", '5m'),\r\n    candidate_id,\r\n    SUM(cnt) as candidate_total\r\n  FROM\r\n    time_to_candidate_minute_trunc as t\r\n  WHERE\r\n    $__timeFilter(\"storage_timestamp\")\r\n    and source = 'EVT'\r\n  GROUP BY\r\n    time,\r\n    candidate_id\r\n  ORDER BY\r\n    time,\r\n    candidate_id\r\n),\r\ntime_to_total_votes AS (\r\n  SELECT\r\n    time,\r\n    SUM(candidate_total) as total_votes_at_time\r\n  FROM\r\n    time_candidate_id_to_total\r\n  GROUP BY\r\n    time\r\n),\r\ntime_candidate_to_total_joined AS (\r\n  SELECT\r\n    time_candidate_id_to_total.time as time,\r\n    time_candidate_id_to_total.candidate_id as candidate_id,\r\n    (case\r\n      when time_to_total_votes.total_votes_at_time < 15 then null\r\n      else time_candidate_id_to_total.candidate_total / time_to_total_votes.total_votes_at_time\r\n    end) as candidate_fraction\r\n  FROM\r\n    time_candidate_id_to_total\r\n    JOIN time_to_total_votes USING (time)\r\n),\r\npercents_with_names AS (\r\n  SELECT\r\n    t1.*,\r\n    t2.candidate_name as candidate_name\r\n  FROM\r\n    time_candidate_to_total_joined as t1\r\n    LEFT JOIN candidate_id_to_name as t2 ON (\r\n      t1.candidate_id :: text = t2.candidate_id :: text\r\n    )\r\n),\r\ngraph as (\r\n  SELECT\r\n    time,\r\n    COALESCE(candidate_name :: text, 'Испорченный бюллетень') as \"metric\",\r\n    candidate_fraction * 100.0 as \"value\"\r\n  FROM\r\n    percents_with_names\r\n  ORDER BY\r\n    time,\r\n    candidate_id\r\n)\r\nselect\r\n  *\r\nfrom\r\n  graph;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "% кандидатов, ТЭГ",
+        "type": "timeseries"
+      }
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "2024-03-15T05:00:00.000Z",
+      "to": "2024-03-17T17:00:00.000Z"
+    },
+    "timepicker": {},
+    "timezone": "Europe/Moscow",
+    "title": "Результаты голосования на ДЭГ в Москве",
+    "uid": "e_E8AMJSk",
+    "version": 26,
+    "weekStart": "monday"
+  }
