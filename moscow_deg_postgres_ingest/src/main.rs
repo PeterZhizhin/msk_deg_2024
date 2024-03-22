@@ -281,13 +281,12 @@ struct Args {
 fn parse_json_string(
     json_data: &str,
     parsing_mode: &ParsingMode,
-) -> Option<Box<dyn voting_row::VotingRow>> {
+) -> Option<Vec<Box<dyn voting_row::VotingRow>>> {
     match parsing_mode {
-        ParsingMode::Voting2024 => voting_row_2024::parse_json_string(json_data),
-        ParsingMode::Voting2023 => {
-            let voting_data: VotingData2023 = serde_json::from_str(json_data).ok()?;
-            Some(Box::new(voting_data))
+        ParsingMode::Voting2024 => {
+            voting_row_2024::parse_json_string(json_data).map(|row| vec![row])
         }
+        ParsingMode::Voting2023 => voting_row_2023::parse_json_string(json_data),
     }
 }
 
@@ -354,18 +353,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if n_lines_read % 10000 == 0 {
                             log::info!("Reading line {}", n_lines_read);
                         }
-                        if let Some(parsed_json) = parse_json_string(&line) {
-                            let hashed_tx_row = parsed_json.compute_hash();
-                            let is_already_saved = already_saved_txes.contains(&hashed_tx_row);
-                            if !is_already_saved {
-                                if new_txes % 1000 == 0 {
-                                    log::info!("Sending new tx #{}", new_txes);
+                        if let Some(parsed_json_rows) = parse_json_string(&line, &parsing_mode) {
+                            for parsed_json in parsed_json_rows {
+                                let hashed_tx_row = parsed_json.compute_hash();
+                                let is_already_saved = already_saved_txes.contains(&hashed_tx_row);
+                                if !is_already_saved {
+                                    if new_txes % 1000 == 0 {
+                                        log::info!("Sending new tx #{}", new_txes);
+                                    }
+                                    let tx = tx.clone();
+                                    tx.send(parsed_json)
+                                        .await
+                                        .expect("failed to send json data");
+                                    new_txes += 1;
                                 }
-                                let tx = tx.clone();
-                                tx.send(parsed_json)
-                                    .await
-                                    .expect("failed to send json data");
-                                new_txes += 1;
                             }
                         }
                         n_lines_read += 1;
