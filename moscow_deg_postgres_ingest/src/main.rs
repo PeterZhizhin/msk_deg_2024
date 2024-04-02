@@ -1,57 +1,16 @@
+mod capitalize_json;
+mod voting_row;
+mod voting_row_2023;
+mod voting_row_2024;
+
+use clap::Parser;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
-use serde::{Deserialize, Serialize};
 use std::env;
-use std::hash::{Hash, Hasher};
 use tokio::fs::File;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio_postgres::Error;
-
-#[allow(non_snake_case)]
-#[derive(Debug, Serialize, Deserialize, Default)]
-struct VotingData {
-    CreateVoting: Option<serde_json::Value>,
-    StorageBallot: Option<serde_json::Value>,
-    RegisterVoters: Option<serde_json::Value>,
-    IssueBallot: Option<serde_json::Value>,
-    StoragePrivateKey: Option<serde_json::Value>,
-    StorageHistory: Option<serde_json::Value>,
-    StorageDecodeBallot: Option<serde_json::Value>,
-    StorageResult: Option<serde_json::Value>,
-    StorageObserve: Option<serde_json::Value>,
-    StorageBallotConfig: Option<serde_json::Value>,
-}
-
-#[allow(non_snake_case)]
-#[derive(Debug, Serialize, Deserialize)]
-struct TxData {
-    Hash: String,
-    Type: Option<String>,
-    Data: Option<String>, // not saved in Postgres, used to compute tx hash
-    Timestamp: Option<i64>,
-    DecodeData: Option<VotingData>,
-    Sid: Option<String>,
-    Io: Option<String>,
-    VotingId: Option<String>,
-}
-
-fn manual_hash_for_tx_data(tx_data: &TxData) -> String {
-    let mut hasher = std::hash::DefaultHasher::new();
-    match &tx_data.Data {
-        Some(data) => {
-            data.hash(&mut hasher);
-            hasher.finish().to_string()
-        }
-        None => "None".into(),
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq)]
-struct HashedTxRow {
-    tx_hash: String,
-    row_hash: String,
-}
 
 /*
 
@@ -69,7 +28,7 @@ GRANT CONNECT ON DATABASE moscow_real_vote_db TO check_sid_moscow_ingest;
 
 async fn query_hash_of_saved_tx(
     client: std::sync::Arc<tokio_postgres::Client>,
-) -> Result<std::collections::HashSet<HashedTxRow>, Error> {
+) -> Result<std::collections::HashSet<voting_row::HashedTxRow>, Error> {
     let rows = client
         .query("SELECT TxHash, RowHash FROM saved_tx_hashes", &[])
         .await?;
@@ -79,7 +38,7 @@ async fn query_hash_of_saved_tx(
     for row in rows {
         let tx_hash: String = row.try_get::<_, String>("TxHash")?;
         let row_hash: String = row.try_get::<_, String>("RowHash")?;
-        hash_set.insert(HashedTxRow { tx_hash, row_hash });
+        hash_set.insert(voting_row::HashedTxRow { tx_hash, row_hash });
     }
 
     Ok(hash_set)
@@ -87,7 +46,7 @@ async fn query_hash_of_saved_tx(
 
 async fn insert_hash_of_saved_txs(
     client: std::sync::Arc<tokio_postgres::Client>,
-    tx_data_batch: &[TxData],
+    tx_data_batch: &[Box<dyn voting_row::VotingRow>],
 ) -> Result<(), Error> {
     let stmt = "
         INSERT INTO saved_tx_hashes (TxHash, RowHash)
@@ -97,7 +56,7 @@ async fn insert_hash_of_saved_txs(
     let mut values_clause = Vec::new();
     let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
 
-    let mut hashes: Vec<HashedTxRow> = Vec::new();
+    let mut hashes: Vec<voting_row::HashedTxRow> = Vec::new();
     let n_elements = 2;
     for (index, tx_data) in tx_data_batch.iter().enumerate() {
         let i = index * n_elements + 1;
@@ -109,11 +68,7 @@ async fn insert_hash_of_saved_txs(
         let placeholders = format!("({})", placeholders);
         values_clause.push(placeholders);
 
-        let hash = manual_hash_for_tx_data(tx_data);
-        hashes.push(HashedTxRow {
-            tx_hash: tx_data.Hash.clone(),
-            row_hash: hash,
-        });
+        hashes.push(tx_data.compute_hash());
     }
 
     for index in 0..tx_data_batch.len() {
@@ -161,7 +116,7 @@ GRANT CONNECT ON DATABASE moscow_real_vote_db TO check_sid_moscow_ingest;
 #[async_recursion::async_recursion]
 async fn insert_voting_data(
     client: std::sync::Arc<tokio_postgres::Client>,
-    tx_data_batch: &[TxData],
+    tx_data_batch: &[Box<dyn voting_row::VotingRow>],
     folder_id: &str,
 ) -> Result<(), Error> {
     let stmt = "
@@ -174,13 +129,17 @@ async fn insert_voting_data(
         VALUES
     ";
 
-    let voting_data_default = VotingData::default();
+    let mut datas = Vec::new();
+    for tx_data in tx_data_batch.iter() {
+        datas.push(tx_data.to_data());
+    }
 
     let mut values_clause = Vec::new();
+
     let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
 
     let n_elements = 17;
-    for (index, tx_data) in tx_data_batch.iter().enumerate() {
+    for (index, data) in datas.iter().enumerate() {
         let i = index * n_elements + 1;
         let placeholders = (i..=i + n_elements - 1)
             .map(|n| format!("${}", n))
@@ -190,25 +149,23 @@ async fn insert_voting_data(
         let placeholders = format!("({})", placeholders);
         values_clause.push(placeholders);
 
-        let data = tx_data.DecodeData.as_ref().unwrap_or(&voting_data_default);
-
         params.extend_from_slice(&[
-            &data.CreateVoting,
-            &data.StorageBallot,
-            &data.RegisterVoters,
-            &data.IssueBallot,
-            &data.StoragePrivateKey,
-            &data.StorageHistory,
-            &data.StorageResult,
-            &data.StorageDecodeBallot,
-            &data.StorageObserve,
-            &data.StorageBallotConfig,
-            &tx_data.Type,
-            &tx_data.Timestamp,
-            &tx_data.Sid,
-            &tx_data.Io,
-            &tx_data.VotingId,
-            &tx_data.Hash,
+            &data.create_voting,
+            &data.storage_ballot,
+            &data.register_voters,
+            &data.issue_ballot,
+            &data.storage_private_key,
+            &data.storage_history,
+            &data.storage_result,
+            &data.storage_decode_ballot,
+            &data.storage_observe,
+            &data.storage_ballot_config,
+            &data.tx_type,
+            &data.timestamp,
+            &data.sid,
+            &data.io,
+            &data.voting_id,
+            &data.hash,
             &folder_id,
         ]);
     }
@@ -259,24 +216,9 @@ async fn insert_voting_data(
     Ok(())
 }
 
-fn parse_json_string(json_data: &str) -> Option<TxData> {
-    match serde_json::from_str::<TxData>(json_data) {
-        Ok(parsed_json) => {
-            if parsed_json.DecodeData.is_none() {
-                return None;
-            }
-            Some(parsed_json)
-        }
-        Err(e) => {
-            log::error!("error parsing json: {}", e);
-            None
-        }
-    }
-}
-
 async fn write_batch(
     worker_id: usize,
-    parsed_jsons: &[TxData],
+    parsed_jsons: &[Box<dyn voting_row::VotingRow>],
     worker_client: std::sync::Arc<tokio_postgres::Client>,
     worker_directory_path: &str,
 ) {
@@ -318,15 +260,43 @@ async fn write_batch(
 const PG_BATCH_SIZE: usize = 1250;
 const NUM_PG_WORKERS: usize = 2; // Number of concurrent workers
 
+#[derive(Debug, PartialEq, clap::ValueEnum, Clone)]
+enum ParsingMode {
+    Voting2024,
+    Voting2023,
+}
+
+#[derive(clap::Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the directory with JSON files
+    #[clap(value_parser)]
+    directory_path: String,
+
+    /// Parsing mode
+    #[clap(value_enum, short, long, default_value_t = ParsingMode::Voting2024)]
+    parsing_mode: ParsingMode,
+}
+
+fn parse_json_string(
+    json_data: &str,
+    parsing_mode: &ParsingMode,
+) -> Option<Vec<Box<dyn voting_row::VotingRow>>> {
+    match parsing_mode {
+        ParsingMode::Voting2024 => {
+            voting_row_2024::parse_json_string(json_data).map(|row| vec![row])
+        }
+        ParsingMode::Voting2023 => voting_row_2023::parse_json_string(json_data),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
-    let directory_path = args
-        .get(1)
-        .expect("Usage: program <path_to_directory>\nNo directory specified")
-        .clone();
+    let args = Args::parse();
+    let directory_path = args.directory_path;
+    let parsing_mode = args.parsing_mode;
 
     let pattern = format!("{}/*.json", directory_path);
     let glob_result: Vec<_> = glob::glob(&pattern)?.collect();
@@ -383,22 +353,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if n_lines_read % 10000 == 0 {
                             log::info!("Reading line {}", n_lines_read);
                         }
-                        if let Some(parsed_json) = parse_json_string(&line) {
-                            let parsed_json_hash = manual_hash_for_tx_data(&parsed_json);
-                            let hashed_tx_row = HashedTxRow {
-                                tx_hash: parsed_json.Hash.clone(),
-                                row_hash: parsed_json_hash,
-                            };
-                            let is_already_saved = already_saved_txes.contains(&hashed_tx_row);
-                            if !is_already_saved {
-                                if new_txes % 1000 == 0 {
-                                    log::info!("Sending new tx #{}", new_txes);
+                        if let Some(parsed_json_rows) = parse_json_string(&line, &parsing_mode) {
+                            for parsed_json in parsed_json_rows {
+                                let hashed_tx_row = parsed_json.compute_hash();
+                                let is_already_saved = already_saved_txes.contains(&hashed_tx_row);
+                                if !is_already_saved {
+                                    if new_txes % 1000 == 0 {
+                                        log::info!("Sending new tx #{}", new_txes);
+                                    }
+                                    let tx = tx.clone();
+                                    tx.send(parsed_json)
+                                        .await
+                                        .expect("failed to send json data");
+                                    new_txes += 1;
                                 }
-                                let tx = tx.clone();
-                                tx.send(parsed_json)
-                                    .await
-                                    .expect("failed to send json data");
-                                new_txes += 1;
                             }
                         }
                         n_lines_read += 1;
@@ -419,7 +387,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Spawn a task for inserting data into the database
         let task = tokio::spawn(async move {
             log::info!("Starting Postgres ingest worker #{}", worker_id);
-            let mut parsed_jsons: Vec<TxData> = Vec::new();
+            let mut parsed_jsons: Vec<Box<dyn voting_row::VotingRow>> = Vec::new();
             while let Ok(parsed_json) = worker_rx.recv().await {
                 parsed_jsons.push(parsed_json);
                 if parsed_jsons.len() >= PG_BATCH_SIZE {

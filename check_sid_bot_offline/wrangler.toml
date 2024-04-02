@@ -1,0 +1,8 @@
+name = "check-sid-bot-offline"
+main = "src/entry.py"
+compatibility_flags = ["python_workers"]
+compatibility_date = "2024-04-02"
+
+kv_namespaces = [
+  { binding = "TELEGRAM_USERS", id = "e036e83c62c8463d86a5d1f2207db09e" },
+]
